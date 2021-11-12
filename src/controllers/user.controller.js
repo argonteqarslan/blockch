@@ -75,6 +75,7 @@ exports.update = async (req, res) => {
 exports.transferToChainCtrl = async (req, res) => {
   try {
     let {
+      body,
       body: {
         id,
         amount: amountToTransfer
@@ -85,11 +86,11 @@ exports.transferToChainCtrl = async (req, res) => {
       _id: id,
     });
 
-    if (user.offChainAmount && user.offChainAmount < amountToTransfer) {
+    if (!user.offChainAmount || user.offChainAmount < parseInt(amountToTransfer)) {
       throw new Error('Insufficent amount.')
     }
-    const remainingAmountAfterTransfer = user.offChainAmount - amountToTransfer
-    await transferToChainHelper({ Address: body.walletAddress, Amount: amountToTransfer, gasLimit: body.gasLimit, user, remainingAmountAfterTransfer });
+    const remainingAmountAfterTransfer = user.offChainAmount - parseInt(amountToTransfer)
+    await transferToChainHelper({ Address: body.walletAddress, Amount: parseInt(amountToTransfer), gasLimit: body.gasLimit, user, remainingAmountAfterTransfer });
 
     res.status(200).send({
       status: "success",
@@ -194,7 +195,7 @@ async function transferToChainHelper({ Address, Amount, gasLimit, user, remainin
     Name: "Transfer_To_Chain",
     Address,
     Amount,
-    gasLimit: gasLimit
+    gasLimit: parseInt(gasLimit)
   }
   client.write(convertToBuffer(transferToChainObject));
   client.on('data', async (ins) => {

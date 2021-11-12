@@ -1,6 +1,6 @@
 const User = require("../models/user.model");
 const { client } = require("../helpers/tcp_connection")
-const{
+const {
   blockChainHelper,
   getBalanceHelper,
   transferToChainHelper,
@@ -82,14 +82,13 @@ exports.transferToChainCtrl = async (req, res) => {
       body,
       body: {
         id,
-        amount: amountToTransfer
+        onChainAmount: amountToTransfer,
       }
     } = req;
-
+    body.gasLimit = "100000"
     const user = await User.findOne({
       _id: id,
     });
-
     if (!user.offChainAmount || user.offChainAmount < parseInt(amountToTransfer)) {
       throw new Error('Insufficent amount.')
     }

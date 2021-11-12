@@ -1,8 +1,8 @@
 const net = require('net');
 const client = new net.Socket();
 
-const Ip = "192.168.3.17"
-const Port = 37356
+const Ip = "192.168.1.250"
+const Port = 6699
 
 
 client.connect(Port, Ip, () => {

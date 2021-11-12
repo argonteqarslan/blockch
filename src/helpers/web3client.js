@@ -1,4 +1,5 @@
 const { client } = require("./tcp_connection")
+const User = require("../models/user.model");
 
 async function blockChainHelper(data, id) {
   client.on('data', async (ins) => {
@@ -19,23 +20,33 @@ async function blockChainHelper(data, id) {
   return true;
 }
 
+// client.on('data', ((args) => {
+//   ins = convertToJson(args);
+//   console.log(ins);
+//   }));
+
 async function getBalanceHelper(id) {
   const getBalanceObject = {
     Name: "Balance_of",
     Recipient: "0x5313d87af949395728Cc2BBd37eD8a6cBFc63b95"
   }
   client.write(convertToBuffer(getBalanceObject));
-  client.on('data', async (ins) => {
-    ins = convertToJson(ins)
-    console.log(ins)
-    let a = await User.updateOne({
-      _id: id
-    }, {
-      onChainAmount: ins.Amount
-    }, { upsert: true })
-    return a
-  })
-  return true
+  const p = new Promise((resolve) => {
+    client.on('data', async (ins) => {
+      ins = convertToJson(ins)
+      console.log(ins)
+      let a = await User.updateOne({
+        _id: id
+      }, {
+        onChainAmount: ins.Amount
+      }, { upsert: true })
+      return ins
+    })
+  });
+  p.then((a) => {
+    console.log(a)
+  });
+  return
 }
 
 async function transferBalance() {
@@ -79,6 +90,8 @@ async function transferToChainHelper({ Address, Amount, gasLimit, user, remainin
       }, {
         offChainAmount: remainingAmountAfterTransfer
       }, { upsert: true })
+    } else {
+      throw new Error('Sorry could not transfer the coins.')
     }
   })
   return true

@@ -1,14 +1,13 @@
 const User = require("../models/user.model");
-const { client } = require("../tcp_connection")
+const { client } = require("../helpers/tcp_connection")
 
 exports.create = async (req, res) => {
   try {
     console.log("request :", req);
     const transaction = await User.create(req.body);
 
-
     const responseFromW3 = await blockChainHelper(req.body, transaction.id);
-    console.log("Arslan", responseFromW3);
+    console.log("res", responseFromW3);
     console.log("user and transaction :", transaction);
 
     res.status(200).send({
@@ -126,9 +125,6 @@ exports.transferOffChain = async (req, res) => {
   } catch (error) {
     res.status(500).send({ message: error.message });
   }
-
-
-
 }
 
 async function blockChainHelper(data, id) {

@@ -1,8 +1,8 @@
 'use strict'
 var express = require('express');
 const { userRoutes } = require('./routes/index.routes');
-const { dbConnection } = require("./db")
-const { tcpConnection } = require("./tcp_connection")
+const { dbConnection } = require("./helpers/db")
+const { tcpConnection } = require("./helpers/tcp_connection")
 
 dbConnection();
 tcpConnection();

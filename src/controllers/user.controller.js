@@ -5,6 +5,8 @@ exports.create = async (req, res) => {
   try {
     console.log("request :", req);
     const transaction = await User.create(req.body);
+
+
     const responseFromW3 = await blockChainHelper(req.body, transaction.id);
     console.log("Arslan", responseFromW3);
     console.log("user and transaction :", transaction);
@@ -71,12 +73,24 @@ exports.update = async (req, res) => {
   }
 };
 
-exports.withDrawToChainCtrl = async (req, res) => {
+exports.transferToChainCtrl = async (req, res) => {
   try {
     let {
-      body
+      body: {
+        id,
+        amount: amountToTransfer
+      }
     } = req;
-    await withdrawToChainHelper({ Address: body.walletAddress, Amount: body.amount, gasLimit: body.gasLimit });
+
+    const user = await User.findOne({
+      _id: id,
+    });
+
+    if (user.offChainAmount && user.offChainAmount < amountToTransfer) {
+      throw new Error('Insufficent amount.')
+    }
+    const remainingAmountAfterTransfer = user.offChainAmount - amountToTransfer
+    await transferToChainHelper({ Address: body.walletAddress, Amount: amountToTransfer, gasLimit: body.gasLimit, user, remainingAmountAfterTransfer });
 
     res.status(200).send({
       status: "success",
@@ -85,6 +99,36 @@ exports.withDrawToChainCtrl = async (req, res) => {
   } catch (error) {
     res.status(500).send({ message: error.message });
   }
+}
+
+exports.transferOffChain = async (req, res) => {
+  let {
+    body: {
+      id,
+      offChainAmount
+    }
+  } = req;
+  try {
+    const user = await User.findOne({
+      _id: id,
+    });
+    const amountAfterAddition = user.offChainAmount + parseInt(offChainAmount)
+    await User.updateOne({
+      _id: id
+    }, {
+      offChainAmount: amountAfterAddition
+    }, { upsert: true })
+
+    res.status(200).send({
+      status: "success",
+      message: "success",
+    });
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+
+
+
 }
 
 async function blockChainHelper(data, id) {
@@ -109,7 +153,7 @@ async function blockChainHelper(data, id) {
 async function getBalanceHelper(id) {
   const getBalanceObject = {
     Name: "Balance_of",
-    Recipient: "0xA44CEB136e3291f9d3Dd0682c6E07681F9AeA9aa"
+    Recipient: "0x5313d87af949395728Cc2BBd37eD8a6cBFc63b95"
   }
   client.write(convertToBuffer(getBalanceObject));
   client.on('data', async (ins) => {
@@ -118,7 +162,7 @@ async function getBalanceHelper(id) {
     let a = await User.updateOne({
       _id: id
     }, {
-      amount: ins.Amount
+      onChainAmount: ins.Amount
     }, { upsert: true })
     return a
   })
@@ -128,7 +172,7 @@ async function getBalanceHelper(id) {
 async function transferBalance() {
   const getBalanceObject = {
     Name: "Balance_of",
-    Recipient: "0xA44CEB136e3291f9d3Dd0682c6E07681F9AeA9aa"
+    Recipient: "0x5313d87af949395728Cc2BBd37eD8a6cBFc63b95"
   }
   client.write(convertToBuffer(getBalanceObject));
   client.on('data', async (ins) => {
@@ -140,7 +184,7 @@ async function transferBalance() {
 async function depositArgonToken() {
   const getBalanceObject = {
     Name: "Deposit_Token",
-    Recipient: "0xA44CEB136e3291f9d3Dd0682c6E07681F9AeA9aa"
+    Recipient: "0x5313d87af949395728Cc2BBd37eD8a6cBFc63b95"
   }
   client.write(convertToBuffer(getBalanceObject));
   client.on('data', async (ins) => {
@@ -149,24 +193,27 @@ async function depositArgonToken() {
   })
 }
 
-async function withdrawToChainHelper({ Address, Amount, gasLimit }) {
-  const withdrawToChainObject = {
-    Name: "WithDraw_To_Chain",
+async function transferToChainHelper({ Address, Amount, gasLimit, user, remainingAmountAfterTransfer }) {
+  const transferToChainObject = {
+    Name: "Transfer_To_Chain",
     Address,
     Amount,
     gasLimit: gasLimit
   }
-  client.write(convertToBuffer(withdrawToChainObject));
+  client.write(convertToBuffer(transferToChainObject));
   client.on('data', async (ins) => {
     ins = convertToJson(ins)
     console.log(ins)
+    if (ins.Res && ins.Res == 'Completed') {
+      await User.updateOne({
+        _id: user.id
+      }, {
+        offChainAmount: remainingAmountAfterTransfer
+      }, { upsert: true })
+    }
   })
   return true
 }
-
-async function changeOwner() {
-}
-
 
 
 function convertToBuffer(data) {
@@ -174,4 +221,37 @@ function convertToBuffer(data) {
 }
 function convertToJson(buffer) {
   return JSON.parse(buffer.toString())
+}
+
+
+async function updateUserBalanceInOffChainTransfer(id, amountToTransfer) {
+  const user = await User.findOne({
+    _id: id,
+  });
+
+  if (user.offChainAmount && user.offChainAmount < amountToTransfer) {
+    throw new Error('Insufficent amount.')
+  }
+  const remainingAmountAfterTransfer = user.offChainAmount - amountToTransfer;
+  const updateUserBalance = await User.updateOne({
+    _id: id
+  }, {
+    offChainAmount: remainingAmountAfterTransfer
+  }, { upsert: true })
+  return updateUserBalance
+}
+
+async function updateRecipientBalanceInOffChainTransfer(recipientId, amountToTransfer) {
+
+  const recipient = await User.findOne({
+    _id: recipientId,
+  });
+  const recipientAmountAfterTransfer = recipient.offChainAmount + amountToTransfer;
+
+  const updateRecipientBalance = await User.updateOne({
+    _id: id
+  }, {
+    offChainAmount: recipientAmountAfterTransfer
+  }, { upsert: true })
+  return updateRecipientBalance
 }

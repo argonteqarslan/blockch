@@ -4,9 +4,9 @@
   "description": "express server with babel installed",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon  lib/index.js --exec babel-node",
-    "debug": "nodemon --inspect lib/index.js",
-    "build": "babel lib -d dist",
+    "start": "nodemon  src/index.js --exec babel-node",
+    "debug": "nodemon --inspect src/index.js",
+    "build": "babel src -d dist",
     "serve": "node dist/index.js"
   },
   "keywords": [],

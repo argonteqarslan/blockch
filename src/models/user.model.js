@@ -18,10 +18,13 @@ const UserSchema = new mongoose.Schema({
   },
   withdrawlTransactions: [{}],
   amount: Number,
+  offChainAmount: { type: Number, default: 0 },
+  onChainAmount: Number,
   recipientAddress: String,
   time: String,
   isDeleted: Boolean,
-  detail: String
+  detail: String,
+  walletAddress: String
 }, {
   timestamps: true
 })

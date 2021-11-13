@@ -2,22 +2,24 @@ const { client } = require("./tcp_connection")
 const User = require("../models/user.model");
 
 async function blockChainHelper(data, id) {
-  client.on('data', async (ins) => {
-    ins = convertToJson(ins)
-    console.log(ins)
-    let a = await User.updateOne({
-      _id: id
-    }, {
-      detail: ins.detail
-    }, { upsert: true })
-    return a
-  })
-
   const dataObject = {
     Name: "Test"
   }
   client.write(convertToBuffer(dataObject))
-  return true;
+  const p = await new Promise((resolve) => {
+    client.on('data', async (ins) => {
+      ins = convertToJson(ins)
+      console.log(ins)
+      let a = await User.updateOne({
+        _id: id
+      }, {
+        detail: ins.detail
+      }, { upsert: true })
+      return a
+    })
+    resolve()
+  });
+  return p;
 }
 
 // client.on('data', ((args) => {
@@ -31,7 +33,7 @@ async function getBalanceHelper(id) {
     Recipient: "0x5313d87af949395728Cc2BBd37eD8a6cBFc63b95"
   }
   client.write(convertToBuffer(getBalanceObject));
-  const p = new Promise((resolve) => {
+  const p = await new Promise((resolve) => {
     client.on('data', async (ins) => {
       ins = convertToJson(ins)
       console.log(ins)
@@ -40,13 +42,10 @@ async function getBalanceHelper(id) {
       }, {
         onChainAmount: ins.Amount
       }, { upsert: true })
-      return ins
+      resolve(ins)
     })
   });
-  p.then((a) => {
-    console.log(a)
-  });
-  return
+  return p
 }
 
 async function transferBalance() {
@@ -55,10 +54,14 @@ async function transferBalance() {
     Recipient: "0x5313d87af949395728Cc2BBd37eD8a6cBFc63b95"
   }
   client.write(convertToBuffer(getBalanceObject));
-  client.on('data', async (ins) => {
-    ins = convertToJson(ins)
-    console.log(ins)
-  })
+  const p = await new Promise((resolve) => {
+    client.on('data', async (ins) => {
+      ins = convertToJson(ins)
+      console.log(ins)
+    })
+    resolve(ins)
+  });
+  return p
 }
 
 async function depositArgonToken() {
@@ -96,7 +99,6 @@ async function transferToChainHelper({ Address, Amount, gasLimit, user, remainin
   })
   return true
 }
-
 
 function convertToBuffer(data) {
   return Buffer.from(JSON.stringify(data))

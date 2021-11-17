@@ -1,6 +1,8 @@
-const Transaction = require('./transaction.model');
+const User = require('./user.model');
+const VoucherHistory = require('./voucherhistory.model');
 
 module.exports = {
-    Transaction
+    User,
+    VoucherHistory
 }
 

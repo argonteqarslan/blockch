@@ -104,6 +104,25 @@ async function transferToChainHelper({ Address, Amount, gasLimit, user, remainin
   return p
 }
 
+async function topUpOffChainWithVoucherHelper({
+  walletAddress, Txid
+}) {
+  const topUpOffChainWithVoucherObject = {
+    Name: "verifyRecipts",
+    walletAddress,
+    Txid
+  }
+  client.write(convertToBuffer(topUpOffChainWithVoucherObject));
+  const p = await new Promise((resolve) => {
+    client.on('data', async (ins) => {
+      ins = convertToJson(ins)
+      console.log(ins)
+      resolve(ins)
+    })
+  });
+  return p
+}
+
 function convertToBuffer(data) {
   return Buffer.from(JSON.stringify(data))
 }
@@ -151,5 +170,6 @@ module.exports = {
   depositArgonToken,
   transferToChainHelper,
   updateUserBalanceInOffChainTransfer,
-  updateRecipientBalanceInOffChainTransfer
+  updateRecipientBalanceInOffChainTransfer,
+  topUpOffChainWithVoucherHelper
 }

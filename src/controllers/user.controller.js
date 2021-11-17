@@ -1,9 +1,11 @@
 const User = require("../models/user.model");
+const VoucherHistory = require("../models/voucherhistory.model");
 const { client } = require("../helpers/tcp_connection")
 const {
   blockChainHelper,
   getBalanceHelper,
   transferToChainHelper,
+  topUpOffChainWithVoucherHelper
 } = require("../helpers/web3client");
 exports.create = async (req, res, next) => {
   try {
@@ -191,6 +193,54 @@ exports.getOffChainAndOnChainBalanceFromDb = async (req, res, next) => {
       offChainAmount: user.offChainAmount,
       onChainAmount: user.onChainAmount
     }
+    res.status(200).send({
+      data,
+      status: "amount added successfully",
+      message: "success",
+    });
+  } catch (error) {
+    next(error)
+  }
+}
+
+exports.topUpOffChainWithVoucher = async (req, res, next) => {
+  try {
+    let {
+      body,
+      body: {
+        txId,
+        id
+      }
+    } = req;
+    console.log("voucher code", txId);
+
+    const voucherAlreadyExists = await VoucherHistory.findOne({
+      txId,
+    });
+    if (voucherAlreadyExists) {
+      throw new Error('this voucher has already been redeemed.')
+    }
+    const user = await User.findOne({
+      _id: id,
+    });
+
+    if (!user) {
+      throw new Error('user does not exists.')
+    }
+    const resp = await topUpOffChainWithVoucherHelper({ walletAddress: user.walletAddress, Txid: txId });
+
+    if (resp == 'Verified') {
+      const data = await VoucherHistory.create({
+        txId: resp.Txid,
+        amount: resp.amount,
+        userId: id,
+        isRedeemed: true
+      });
+    } else {
+      throw new Error('user does not exists.')
+    }
+
+
     res.status(200).send({
       data,
       status: "amount added successfully",

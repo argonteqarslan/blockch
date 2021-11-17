@@ -17,7 +17,7 @@ async function blockChainHelper(data, id) {
       }, { upsert: true })
       return a
     })
-    resolve()
+    resolve(ins)
   });
   return p;
 }
@@ -33,6 +33,7 @@ async function getBalanceHelper(id) {
     Recipient: "0x5313d87af949395728Cc2BBd37eD8a6cBFc63b95"
   }
   client.write(convertToBuffer(getBalanceObject));
+  console.log(client)
   const p = await new Promise((resolve) => {
     client.on('data', async (ins) => {
       ins = convertToJson(ins)
@@ -84,20 +85,23 @@ async function transferToChainHelper({ Address, Amount, gasLimit, user, remainin
     gasLimit: parseInt(gasLimit)
   }
   client.write(convertToBuffer(transferToChainObject));
-  client.on('data', async (ins) => {
-    ins = convertToJson(ins)
-    console.log(ins)
-    if (ins.Res && ins.Res == 'Completed') {
-      await User.updateOne({
-        _id: user.id
-      }, {
-        offChainAmount: remainingAmountAfterTransfer
-      }, { upsert: true })
-    } else {
-      throw new Error('Sorry could not transfer the coins.')
-    }
-  })
-  return true
+  const p = await new Promise((resolve) => {
+    client.on('data', async (ins) => {
+      ins = convertToJson(ins)
+      console.log(ins)
+      if (ins.Res && ins.Res == 'Completed') {
+        await User.updateOne({
+          _id: user.id
+        }, {
+          offChainAmount: remainingAmountAfterTransfer
+        }, { upsert: true })
+      } else {
+        throw new Error('Sorry could not transfer the coins.')
+      }
+      resolve(ins)
+    })
+  });
+  return p
 }
 
 function convertToBuffer(data) {

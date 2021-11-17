@@ -5,7 +5,7 @@ const {
   getBalanceHelper,
   transferToChainHelper,
 } = require("../helpers/web3client");
-exports.create = async (req, res) => {
+exports.create = async (req, res, next) => {
   try {
     console.log("request :", req);
     const user = await User.findOne({
@@ -24,30 +24,22 @@ exports.create = async (req, res) => {
       message: "your account has been registered successfully",
       data: transaction
     });
-  } catch (err) {
-    res.status(500).send({ message: err.message });
+  } catch (error) {
+    next(error);
   }
 }
 
-exports.signIn = async (req, res) => {
+exports.signIn = async (req, res, next) => {
   try {
     const { body: { userEmail, password } } = req;
     const user = await User.findOne({
       userEmail,
     });
     if (!user) {
-      res.status(200).send({
-        status: "error",
-        message: "user does not exist.",
-        data: user
-      });
+      throw new Error('user does not exists.')
     }
     if (user.password !== password) {
-      res.status(200).send({
-        status: "error",
-        message: "invalid username /password",
-        data: user
-      });
+      throw new Error('invalid username /password.')
     } else {
       res.status(200).send({
         status: "success",
@@ -56,29 +48,32 @@ exports.signIn = async (req, res) => {
       });
     }
   } catch (err) {
-    res.status(500).send({ message: err.message });
+    next(error);
   }
 }
-exports.index = async (req, res) => {
+exports.index = async (req, res, next) => {
   try {
-    const transaction = await User.find({});
-    console.log("array of all the users and transactions :", transaction);
+    const users = await User.find({});
+    console.log("array of all the users and transactions :", users);
 
     res.status(200).send({
       status: "success",
       message: "list of all the users",
-      data: transaction
+      data: users
     });
   } catch (error) {
-    res.status(500).send({ message: error.message });
+    next(error);
   }
 };
 
-exports.getSingle = async (req, res) => {
+exports.getSingle = async (req, res, next) => {
   try {
     const user = await User.findOne({
       _id: req.params.id,
     });
+    if (!user) {
+      throw new Error('user does not exists.')
+    }
     console.log("res of single user and his transactions :", user);
     const responseFromW3 = await getBalanceHelper(req.params.id);
     console.log("res from web 3 :", responseFromW3);
@@ -88,15 +83,21 @@ exports.getSingle = async (req, res) => {
       data: user,
     });
   } catch (error) {
-    res.status(500).send({ message: error.message });
+    next(error);
   }
 };
 
-exports.update = async (req, res) => {
+exports.update = async (req, res, next) => {
   try {
     let {
       body
     } = req;
+    const user = await User.findOne({
+      _id: req.params.id,
+    });
+    if (!user) {
+      throw new Error('user does not exists.')
+    }
     await User.updateOne({
       _id: req.params.id
     }, body, { upsert: true })
@@ -104,13 +105,14 @@ exports.update = async (req, res) => {
     res.status(200).send({
       status: "success",
       message: "information updated successfully",
+      data: user,
     });
   } catch (error) {
-    res.status(500).send({ message: error.message });
+    next(error);
   }
 };
 
-exports.transferToChainCtrl = async (req, res) => {
+exports.transferToChainCtrl = async (req, res, next) => {
   try {
     let {
       body,
@@ -119,26 +121,30 @@ exports.transferToChainCtrl = async (req, res) => {
         onChainAmount: amountToTransfer,
       }
     } = req;
+
     body.gasLimit = "100000"
     const user = await User.findOne({
       _id: id,
     });
+    if (!user) {
+      throw new Error('user does not exist.')
+    }
     if (!user.offChainAmount || user.offChainAmount < parseInt(amountToTransfer)) {
       throw new Error('Insufficent amount.')
     }
     const remainingAmountAfterTransfer = user.offChainAmount - parseInt(amountToTransfer)
-    const res = await transferToChainHelper({ Address: body.walletAddress, Amount: parseInt(amountToTransfer), gasLimit: body.gasLimit, user, remainingAmountAfterTransfer });
+    const resp = await transferToChainHelper({ Address: body.walletAddress, Amount: parseInt(amountToTransfer), gasLimit: body.gasLimit, user, remainingAmountAfterTransfer });
 
     res.status(200).send({
       status: "success",
       message: "Your coins are transferred to the chain successfully",
     });
   } catch (error) {
-    res.status(500).send({ message: error.message });
+    next(error);
   }
 }
 
-exports.transferOffChain = async (req, res) => {
+exports.transferOffChain = async (req, res, next) => {
   let {
     body: {
       id,
@@ -149,6 +155,9 @@ exports.transferOffChain = async (req, res) => {
     const user = await User.findOne({
       _id: id,
     });
+    if (!user) {
+      throw new Error('user does not exist.')
+    }
     const amountAfterAddition = user.offChainAmount + parseInt(offChainAmount)
     await User.updateOne({
       _id: id
@@ -161,33 +170,33 @@ exports.transferOffChain = async (req, res) => {
       message: "success",
     });
   } catch (error) {
-    res.status(500).send({ message: error.message });
+    next(error)
   }
 }
 
-exports.getOffChainAndOnChainBalanceFromDb = async (req, res) => {
-  let {
-    params: {
-      id
-    }
-  } = req;
-  const user = await User.findOne({
-    _id: id,
-  });
-  if (!user) {
-    res.status(200).send({
-      status: "error",
-      message: "user does not exist.",
-      data: user
+exports.getOffChainAndOnChainBalanceFromDb = async (req, res, next) => {
+  try {
+    let {
+      params: {
+        id
+      }
+    } = req;
+    const user = await User.findOne({
+      _id: id,
     });
+    if (!user) {
+      throw new Error("user does not exist.")
+    }
+    const data = {
+      offChainAmount: user.offChainAmount,
+      onChainAmount: user.onChainAmount
+    }
+    res.status(200).send({
+      data,
+      status: "amount added successfully",
+      message: "success",
+    });
+  } catch (error) {
+    next(error)
   }
-  const data = {
-    offChainAmount: user.offChainAmount,
-    onChainAmount: user.onChainAmount
-  }
-  res.status(200).send({
-    data,
-    status: "amount added successfully",
-    message: "success",
-  });
 }

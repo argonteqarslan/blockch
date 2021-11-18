@@ -27,7 +27,11 @@ exports.create = async (req, res, next) => {
       data: transaction
     });
   } catch (error) {
-    next(error);
+    res.status(400).send({
+      status: "error",
+      message: err.message,
+      data: {}
+    });
   }
 }
 
@@ -50,7 +54,11 @@ exports.signIn = async (req, res, next) => {
       });
     }
   } catch (err) {
-    next(error);
+    res.status(400).send({
+      status: "error",
+      message: err.message,
+      data: {}
+    });
   }
 }
 exports.index = async (req, res, next) => {
@@ -64,7 +72,11 @@ exports.index = async (req, res, next) => {
       data: users
     });
   } catch (error) {
-    next(error);
+    res.status(400).send({
+      status: "error",
+      message: error.message,
+      data: {}
+    });
   }
 };
 
@@ -85,7 +97,11 @@ exports.getSingle = async (req, res, next) => {
       data: user,
     });
   } catch (error) {
-    next(error);
+    res.status(400).send({
+      status: "error",
+      message: error.message,
+      data: {}
+    });
   }
 };
 
@@ -110,7 +126,11 @@ exports.update = async (req, res, next) => {
       data: user,
     });
   } catch (error) {
-    next(error);
+    res.status(400).send({
+      status: "error",
+      message: error.message,
+      data: {}
+    });
   }
 };
 
@@ -142,7 +162,11 @@ exports.transferToChainCtrl = async (req, res, next) => {
       message: "Your coins are transferred to the chain successfully",
     });
   } catch (error) {
-    next(error);
+    res.status(400).send({
+      status: "error",
+      message: error.message,
+      data: {}
+    });
   }
 }
 
@@ -160,19 +184,22 @@ exports.transferOffChain = async (req, res, next) => {
     if (!user) {
       throw new Error('user does not exist.')
     }
-    const amountAfterAddition = user.offChainAmount + parseInt(offChainAmount)
     await User.updateOne({
       _id: id
     }, {
-      offChainAmount: amountAfterAddition
+      offChainAmount: parseInt(offChainAmount)
     }, { upsert: true })
 
     res.status(200).send({
-      status: "amount added successfully",
+      status: "success",
       message: "success",
     });
   } catch (error) {
-    next(error)
+    res.status(400).send({
+      status: "error",
+      message: error.message,
+      data: {}
+    });
   }
 }
 
@@ -195,11 +222,15 @@ exports.getOffChainAndOnChainBalanceFromDb = async (req, res, next) => {
     }
     res.status(200).send({
       data,
-      status: "amount added successfully",
+      status: "success",
       message: "success",
     });
   } catch (error) {
-    next(error)
+    res.status(400).send({
+      status: "error",
+      message: error.message,
+      data: {}
+    });
   }
 }
 
@@ -212,6 +243,7 @@ exports.topUpOffChainWithVoucher = async (req, res, next) => {
         id
       }
     } = req;
+    console.log("user id", id);
     console.log("voucher code", txId);
 
     const voucherAlreadyExists = await VoucherHistory.findOne({
@@ -227,26 +259,32 @@ exports.topUpOffChainWithVoucher = async (req, res, next) => {
     if (!user) {
       throw new Error('user does not exists.')
     }
-    const resp = await topUpOffChainWithVoucherHelper({ walletAddress: user.walletAddress, Txid: txId });
+    var resp = await topUpOffChainWithVoucherHelper({ walletAddress: user.walletAddress, Txid: txId });
 
-    if (resp == 'Verified') {
-      const data = await VoucherHistory.create({
+    if (resp.Res == 'Verified') {
+      var data = await VoucherHistory.create({
         txId: resp.Txid,
         amount: resp.amount,
         userId: id,
         isRedeemed: true
       });
+      const updatedAmount = parseInt(user.offChainAmount) + parseInt(resp.amount)
+      await User.updateOne({
+        _id: id
+      }, {offChainAmount: updatedAmount}, { upsert: true })
     } else {
       throw new Error('user does not exists.')
     }
-
-
     res.status(200).send({
-      data,
-      status: "amount added successfully",
-      message: "success",
+      data: {amount:resp.amount},
+      status: "success",
+      message: "top up added successfully",
     });
   } catch (error) {
-    next(error)
+    res.status(400).send({
+      status: "error",
+      message: error.message,
+      data: {}
+    });
   }
 }

@@ -15,9 +15,8 @@ async function blockChainHelper(data, id) {
       }, {
         detail: ins.detail
       }, { upsert: true })
-      return a
+      resolve(ins)
     })
-    resolve(ins)
   });
   return p;
 }
